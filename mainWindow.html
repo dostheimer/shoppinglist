@@ -34,6 +34,7 @@
 
     function removeItem(e) {
       e.target.remove();
+      ipcRenderer.send('item:remove',e.target.textContent);
     }
   </script>
 </body>

@@ -1,14 +1,19 @@
 const electron = require('electron');
 const url = require('url');
 const path = require('path');
+const Store = require('electron-store');
 
 const {app, BrowserWindow, Menu, ipcMain} = electron;
+const store = new Store();
 
 //Set Env
-process.env.NODE_ENV = 'production';
+//process.env.NODE_ENV = 'production';
 
 let mainWindow;
 let addWindow;
+
+let items = store.get('shoppingList.items');
+if (items == undefined) items = [];
 
 app.setName('ShoppingList');
 
@@ -27,6 +32,14 @@ app.on('ready', () => {
       slashes: true
     }));
 
+    mainWindow.webContents.on('did-finish-load', ()=> {
+      items.forEach((item,index) => {
+        console.log(item);
+        mainWindow.webContents.send('item:add', item);
+      });
+    });
+    
+
     //Quit App when closed
     mainWindow.on('closed', () => {
       app.quit();
@@ -34,6 +47,10 @@ app.on('ready', () => {
     // Build Menu from Template
     const mainMenu = Menu.buildFromTemplate(mainMenuTemplate);
     Menu.setApplicationMenu(mainMenu);
+});
+
+app.on('quit', () => {
+  store.set('shoppingList.items', items);
 });
 
 //Handle create add window
@@ -61,8 +78,18 @@ function createAddWindow() {
 // Catch item add
 ipcMain.on('item:add', (e,item) => {
   mainWindow.webContents.send('item:add', item);
+  items.push(item);
   addWindow.close();
 })
+
+// Item Remove
+ipcMain.on('item:remove', (e,item) => {
+  items = items.filter(element => {
+    console.log('element:' + element);
+    console.log('item:' + item);
+    return element !== item;
+  });
+});
 
 // Create Menu Template
 const mainMenuTemplate = [
@@ -71,6 +98,7 @@ const mainMenuTemplate = [
     submenu: [
       {
         label: 'Add Item',
+        accelerator: process.platform == 'darwin' ? 'Command+A' : 'Control+A',
         click() {
           createAddWindow();
         }
@@ -79,6 +107,7 @@ const mainMenuTemplate = [
         label: 'Clear Items',
         click() {
           mainWindow.webContents.send('item:clear');
+          items = [];
         }
       },
       {
